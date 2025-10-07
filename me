@@ -1,0 +1,54 @@
+name: Nextjs-App Deploy with GitHub Actions
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+  - name: SSH into AWS Lightsail and Deploy
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSHKEY }}
+          script: |
+
+            # Install dependencies
+            echo "Installing dependencies..."
+            sudo apt update
+            curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+            sudo apt install -y nodejs npm nginx
+           
+            # Clone repository
+            echo "Cloning repository..."
+            cd /var/www
+            git clone https://github.com/devktops/nextjs-app.git /var/www/nextjs-app || true
+            sudo chown -R $USER:www-data /var/www/nextjs-app
+       
+            # Install project dependencies and build
+            echo "Installing project dependencies and building the project..."
+            npm install
+            npm audit fix --force
+            npm run build
+            sudo chown -R $USER:www-data /var/www/nextjs-app
+         
+            # Start application with PM2
+            echo "Starting application with PM2..."
+            sudo npm install -g pm2
+            pm2 start next-app
+            pm2 save
+            sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u $USER --hp /home/$USER
+    
+            # Verify setup
+            echo "Verifying setup..."
+            node -v
+            npm -v
+            pm2 list

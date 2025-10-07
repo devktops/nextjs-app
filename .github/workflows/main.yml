@@ -1,0 +1,32 @@
+name: Nextjs-App Deploy with GitHub Actions
+
+on:
+  push:
+    branches:
+      - master
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: SSH into AWS Lightsail and Deploy
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSHKEY }}
+          script: |
+            set -e
+            cd /var/www/nextjs-app || exit 1
+            ls -la 
+            npm i -y
+            npm audit fix --force
+            npm run build
+            pm2 stop next-app || true 
+            pm2 start npm --name "next-app" -- run start
+            pm2 save
+            node -v
+            npm -v
+            pm2 list
